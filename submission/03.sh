@@ -1,23 +1,25 @@
 # Which tx in block 216,351 spends the coinbase output of block 216,128?
 
-# get block hashes
-BLOCK_216128=$(bitcoin-cli -signet getblockhash 216128)
-BLOCK_216351=$(bitcoin-cli -signet getblockhash 216351)
+# Get coinbase txid from block 216128
+block216128=$(bitcoin-cli -signet getblockhash 216128)
+coinbaseTransactionId=$(bitcoin-cli -signet getblock "$block216128" | jq -r ".tx[0]")
 
-# get the coinbase txid from block 216128
-COINBASE_TXID=$(bitcoin-cli -signet getblock "$BLOCK_216128" | jq -r '.tx[0]')
+# Get block hash of block 216351
+block216351=$(bitcoin-cli -signet getblockhash 216351)
 
-# check if the coinbase output is spent (vout 0)
-SPENT=$(bitcoin-cli -signet gettxout "$COINBASE_TXID" 0)
+# Get all transactions in block 216351
+transactions=$(bitcoin-cli -signet getblock "$block216351" | jq -r ".tx[]")
 
-if [[ "$SPENT" != "null" ]]; then
-  echo "Coinbase output from block 216128 is still unspent."
-  exit 0
-fi
+# Loop through each tx to find one that spends the coinbase output
+for tx in $transactions; do
+  vins=$(bitcoin-cli -signet getrawtransaction "$tx" true | jq -r ".vin[] | .txid")
+  for vin in $vins; do
+    if [ "$vin" == "$coinbaseTransactionId" ]; then
+      echo "Transaction in block 216,351 that spends the coinbase output of block 216,128:"
+      echo "$tx"
+      exit 0
+    fi
+  done
+done
 
-# search for the transaction in block 216351 that spends it
-SPENDER_TXID=$(bitcoin-cli -signet getblock "$BLOCK_216351" 2 | jq -r --arg txid "$COINBASE_TXID" '
-  .tx[] | select(.vin[]?.txid == $txid) | .txid')
-
-
-echo "$SPENDER_TXID"
+echo "No transaction in block 216,351 spends the coinbase output from block 216,128."
