@@ -2,6 +2,7 @@
 
 # Get coinbase txid from block 216128
 block216128=$(bitcoin-cli -signet getblockhash 216128)
+
 coinbaseTransactionId=$(bitcoin-cli -signet getblock "$block216128" | jq -r ".tx[0]")
 
 # Get block hash of block 216351
@@ -15,11 +16,9 @@ for tx in $transactions; do
   vins=$(bitcoin-cli -signet getrawtransaction "$tx" true | jq -r ".vin[] | .txid")
   for vin in $vins; do
     if [ "$vin" == "$coinbaseTransactionId" ]; then
-      echo "Transaction in block 216,351 that spends the coinbase output of block 216,128:"
       echo "$tx"
       exit 0
     fi
   done
 done
 
-echo "No transaction in block 216,351 spends the coinbase output from block 216,128."
